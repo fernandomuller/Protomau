@@ -1,5 +1,6 @@
 # Protomau - O protocolo mau humorado
 1- Copie os arquivos abaixo para a pasta asn1pp-master criada na instalação do compilador ASN1.
+	
 	protocliente.cc
 	protoserver.cc	
 	Proto.asn1
