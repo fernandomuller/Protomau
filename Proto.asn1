@@ -1,0 +1,11 @@
+Proto DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+Teste ::= SEQUENCE {
+	id INTEGER,
+	tipo INTEGER,
+	counter INTEGER
+	
+}
+
+
+END

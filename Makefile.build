@@ -1,0 +1,68 @@
+include Makefile.objs
+
+#########################################################################
+## Inclua os nomes dos arquivos do seu projeto na variável MYOBJS, porém usando
+## extensões .o ao invés de .c ou .cc.
+## Ex: se seu projeto contém o arquivo proto.cc, modifique MYOBJS assim:
+## MYOBJS = proto.o
+## Ex. 2: no caso de seu projeto conter os arquivos proto.cc e session.cc:
+## MYOBJS = proto.o session.o
+
+MYOBJS=protoserver.o TCPBaseSocket.o
+PROG=myserver
+ASN1SRC:=Proto.asn1 
+
+#########################################################################
+## NÃO MODIFIQUE AS LINHAS ABAIXO !!!
+#########################################################################
+
+ASN1PARSER=../bin/gen_asn1
+ASN1SRCS:=$(addprefix ../,$(ASN1SRC))
+SHELL=/bin/bash
+
+arch=$(shell arch)
+ifeq ($(arch), x86_64)
+  libasn=asn1++_64
+else
+  libasn=asn1++_32
+endif
+
+CFLAGS=-g -I. -I../include
+LDFLAGS=-L../lib -l$(libasn)
+
+all: $(OBJS) $(TOBJS) $(MYOBJS)
+	g++ $(CFLAGS) -o $(PROG) $(TOBJS) $(MYOBJS) $(LDFLAGS)
+	@echo ""
+	@echo Pronto: o programa compilado está em \"build/$(PROG)\"
+	@echo ""
+
+.c.o:
+	gcc -g $(CFLAGS) -c $<
+
+$(MYOBJS): %.o: ../%.cc
+	g++ -c $(CFLAGS)  -c $<
+
+.PHONY: clean
+.PHONY: cleanup
+.PHONY: all
+
+clean: cleanup asn1
+
+cleanup:
+	@rm -f *.c *.h *.o demo
+
+asn1: $(ASN1SRCS)
+	@asn1c $(ASN1SRCS) > asn1.log 2>&1
+	@rm -f converter-sample.c
+	@grep ^Compiled asn1.log | cut -d" " -f2 | grep -v h$$ | sed s/.c$$/.o/ > asn1.tipos
+	@grep ^Copied asn1.log | egrep -o "[^ ]+[ch]"$$ | grep -v converter-sample > asn1.support
+	@rm -f $$(<asn1.support)
+	#@echo -n OBJS= > Makefile.objs
+	#@paste -d" " -s asn1.support >> Makefile.objs
+	@echo "" >> Makefile.objs
+	@echo -n TOBJS= >> Makefile.objs
+	@paste -d" " -s asn1.tipos >> Makefile.objs
+	$(ASN1PARSER) $(ASN1SRCS)
+	@touch asn1
+
+
