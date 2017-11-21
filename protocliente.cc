@@ -10,15 +10,14 @@
 #include <arpa/inet.h>
 #include <sys/un.h>
 
-#include <parser_Proto.h>
+#include <parser_Proto01.h>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include "TCPBaseSocket.h"
 
-using namespace std;
-
 #define PORTA 9999
+using namespace std; 
 
 void usage(const char *argv0);
 void internet_tcp(const char *endereco);
@@ -28,8 +27,6 @@ u_int32_t gera_hora();
 int x,y;
 int start = 1;
 char  valor;
-
-char CONF='0', SEND='1', ACK='2', STOP='3';
 
 char buffer[sizeof(u_int8_t) * 1024];
 
@@ -44,25 +41,116 @@ int tam_resposta,
 
 
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[]){  	
+  	
+  	TPlaca placa;//Cria objeto ASN1 
+  	
+  	placa.set_idPlaca(1000);
+  	
+  	vector<TPsensor> sensores;//Cria vetores std com objetos ASN1	
+  	vector<TMostra> amostras;
+  	
+  	placa.set_datapoints(sensores);
+  	
+  	TPsensor sensor1, sensor2, sensor3;
+  	
+  	//Define valores nos sensores
+  	sensor1.set_idSensor(1);
+  	sensor1.set_tipo(11);
+  	sensor1.set_pEnvio(111);
+  	sensor1.set_pAmostragem(1111);
+  	sensor1.set_valormax(11);
+  	sensor1.set_valormin(1);
+  	sensor1.set_regs(amostras);
+  	
+  	sensor2.set_idSensor(2);
+  	sensor2.set_tipo(22);
+  	sensor2.set_pEnvio(222);
+  	sensor2.set_pAmostragem(2222);
+  	sensor2.set_valormax(22);
+  	sensor2.set_valormin(2);
+  	sensor1.set_regs(amostras);
+  	
+  	//Insere os sensores no vetor de 
+  	//sensores da placa.
+  	sensores.push_back(sensor1);
+  	sensores.push_back(sensor2);
+  	
+  	//Define valores nas amostras m1 e m2
+  	TMostra m1, m2;
+	m1.set_timestamp(11111);
+	m1.set_valor(10);
+	m2.set_timestamp(22222);
+	m2.set_valor(20);
+	
+	m1.show();	m2.show();	
+	
+	amostras.push_back(m1);
+	amostras.push_back(m2);	
+	cout << "amostras" << endl;
+  	
+  	placa.check_constraints();
+	placa.show();
+  	
+  	
+  	// Monta o PDU, ou seja, uma mensagem de dados
+  	TPDU pdu; 	   	
+	TPDU::Choice_payload & carga = pdu.get_payload();	
+	TDados data = carga.get_dados();
+	
+	vector<TValores> valores;	
+	
+	TValores v1, v2;	
+	
+	v1.set_idSensor(1);
+	v1.set_registros(amostras);
+	v2.set_idSensor(2);
+	v2.set_registros(amostras);
+	
+	/*v1.set_idSensor(sensor1.get_idSensor());
+	v1.set_registros(&sensor1.get_regs());
+	v2.set_idSensor(sensor2.get_idSensor());
+	v2.set_registros(&sensor1.get_regs());*/
+	
+	v1.show();	v2.show();
+		
+	valores.push_back(v1);
+	valores.push_back(v2);
+	
+	data.set_val(valores);
+	
+	pdu.check_constraints();
+	pdu.show();
+	
+	
+	//delete pdu;
+	//ASN1Sequence<TValores> & valores2 = data.get_val(valores2); 	
+	
+	//valores2.add(&m1);
+	//valores2.add(&m2);
+	
+	/*ASN1DataType<Mensagem_t> pkt(&asn_DEF_Mensagem);  
+	Mensagem_t * msg = pkt.get_data();
+	ASN1Sequence<long> seq(&msg->dados);
+	 
+	seq.add(10);
+	seq.add(20);
+	 
+	cout << "seq[0]: " << seq.get(0) << endl;
 
-	TTeste pkt;
-	// definindo os valores  
-	pkt.set_id(1);
-	pkt.set_tipo(1);
-	pkt.set_counter(0);
-	//pkt.set_data(time(NULL));
-  	// verifica se os valores respeitam a especificação
-  	pkt.check_constraints();
-  	// mostra a estrutura de dados na tela
-  	cout << "Estrutura de dados em memória (antes de codificação DER):" << endl;
-  	pkt.show();
-
+	TValores valores = data.get_val();
+	valores.set_idSensor(5);
+	
+	vector<long> seq;
+  	pkt.get_valor(seq);*/
+	
+	
+	
   	// cria o codificador
   	//ofstream out("pkt.data");
   	//TTeste::XerSerializer encoder(out);
   	
-  	ostringstream out;
+  	/*ostringstream out;
   	TTeste::DerSerializer encoder(out);
 
   	// codifica a estrutura de dados
@@ -78,7 +166,7 @@ int main(int argc, char *argv[]){
 
   	sleep(1);
 
- 	sock.close();
+ 	sock.close();*/
  	
 	//------------------------------------------------------
 	
@@ -141,7 +229,8 @@ int main(int argc, char *argv[]){
 			data.valores.timestamp = htonl(gera_hora());
 			mytimer += intervalo_timer;
 		}
-	}*/		
+	}*/	
+	exit(0);	
 }
 
 //------------------------------------------------------------------
