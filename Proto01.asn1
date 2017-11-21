@@ -1,23 +1,14 @@
 Proto01 DEFINITIONS AUTOMATIC TAGS ::= BEGIN
 
-
 Numero ::= INTEGER
 
 PDU ::=SEQUENCE{
 	  seq INTEGER,
 	  payload CHOICE {
-		codigo INTEGER,
-		dados PrintableString (SIZE(1..64))
+	  	assoc Associacao,
+	  	conf Configuracao,
+	  	dados Dados
 	  }
-}
-
-Teste ::= SEQUENCE {
-	id INTEGER,
-	tipo INTEGER,
-	counter INTEGER,
-	codigo SEQUENCE OF Numero,
-	bosta SEQUENCE OF PDU,
-	timestamp INTEGER	
 }
 
 Emprego ::= SEQUENCE {
@@ -50,6 +41,25 @@ Configuracao ::= SEQUENCE {
 	alarme SEQUENCE OF Alarme
 }
 Dados ::= SEQUENCE {
-	msg SEQUENCE OF Valores
+	val SEQUENCE OF Valores
 }
+
+Psensor ::=SEQUENCE{
+	idSensor INTEGER,
+	tipo INTEGER,
+	pEnvio INTEGER,
+	pAmostragem INTEGER,
+	valormax INTEGER,
+	valormin INTEGER,
+	regs SEQUENCE OF Mostra
+}
+
+Placa ::=SEQUENCE{
+	idPlaca INTEGER,
+	datapoints SEQUENCE OF Psensor
+}
+
 END
+
+
+
