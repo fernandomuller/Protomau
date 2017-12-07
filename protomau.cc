@@ -74,7 +74,7 @@ void protomau::handle(){
 		
 	//int y = sock.recv(buffer, 1);
 	//printf ("\n\nRecebeu: %d " , y);
-	
+	//TODO
  	switch (evento)
  	{
         case timeout://----------------------------------------
@@ -97,7 +97,7 @@ void protomau::handle(){
 				if (FD_ISSET(fd_sock, &r)) {
 				 cout << "*********Socket ??? **********";
 						//Trata recepção msg Conf	
-						 
+						
 						evento = quadro;
 						handle(); 
 						break;       				
@@ -171,6 +171,48 @@ void protomau::handle(){
    cout << "*********fim **********";
 }
 
+void protomau::configura(TPlaca p){
+	cout << "\nConfigurando a Placa...\n";
+	
+	TPDU pdu;
+	TPDU::Choice_payload & carga = pdu.get_payload();
+    TConfiguracao config = carga.get_conf();
+
+	config.set_pEnvio(10);
+	config.set_pAmostragem(2);
+	
+	vector<TPsensor> v_sensores;
+	placa.get_datapoints(v_sensores);
+	
+	int N = v_sensores.size();
+
+	vector<TAlarme> ve;
+	TAlarme e[N];
+
+	if(N>0){
+		for(int i = 0; i < N; i++){
+			e[i].set_id(v_sensores[i].get_idSensor());
+			e[i].set_valorMaximo(N-i + 1);
+			e[i].set_valorMinimo(i-N);				
+			ve.push_back(e[i]);	
+		}		
+	}
+
+	config.set_alarme(ve);
+/*--------------------------------------------------------*/
+	pdu.check_constraints();	
+	pdu.show();
+	
+  	ostringstream out;
+  	TPDU::DerSerializer encoder(out);
+  	
+  	encoder.serialize(pdu);  	
+	
+  	string conteudo = out.str();
+  	cout<<"Enviou: "<<sock.send(conteudo)<<" bytes de "<<conteudo.size()<< endl;
+	
+}
+
 void protomau::assoc(TPlaca p){	
 
   	cout << "\nEnviando msg Associação...\n";
@@ -189,11 +231,11 @@ void protomau::assoc(TPlaca p){
 	TEmprego e[N];
 	
 	if(N>0){
-			for(int i = 0; i < N; i++){
-				e[i].set_id(v_sensores[i].get_idSensor());
-				e[i].set_tipo(v_sensores[i].get_tipo());			
-				ve.push_back(e[i]);	
-		   }		
+		for(int i = 0; i < N; i++){
+			e[i].set_id(v_sensores[i].get_idSensor());
+			e[i].set_tipo(v_sensores[i].get_tipo());			
+			ve.push_back(e[i]);	
+		}		
 	}
 	
 	associa.set_sensores(ve); 
