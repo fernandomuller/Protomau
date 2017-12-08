@@ -1,6 +1,8 @@
 # Protomau - O protocolo mau humorado
 1- Copie os arquivos abaixo para a pasta asn1pp-master criada na instalação do compilador ASN1.
 	
+	protomau.h
+	protomau.cc
 	protocliente.cc
 	protoserver.cc	
 	Proto.asn1
@@ -11,7 +13,7 @@
 2- Edite o arquivo Makefile.build, conforme o arquivo executável que vc quer compilar.
 	Exemplo: Para compilar o arquivo do servidor (protoserver.cc), edite as variáveis como mostrado abaixo.
 
-	MYOBJS=protoserver.o TCPBaseSocket.o
+	MYOBJS=protoserver.o protomau.o TCPBaseSocket.o
 	PROG=server
 	ASN1SRC:=Proto.asn1 
 
@@ -27,7 +29,7 @@ Ao compilar a especificação e o programa principal, é criada uma pasta chamad
 
 OBS: Antes de compilar o arquivo protocliente.cc, renomeie a pasta build para build_server, por exemplo. E edite o arquivo Makefile.build conforme o arquivo executável que vc quer compilar. Nesse caso, protocliente.cc.
 
-	MYOBJS=protocliente.o TCPBaseSocket.o
+	MYOBJS=protocliente.o protomau.o TCPBaseSocket.o
 	PROG=cliente
 	ASN1SRC:=Proto.asn1 
 
