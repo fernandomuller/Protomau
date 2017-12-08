@@ -1,4 +1,9 @@
 # Protomau - O protocolo mau humorado
+
+Faça a instalação do compilador ASN1 seguindo os passos do link https://wiki.sj.ifsc.edu.br/wiki/index.php/Compilador_ASN1.
+
+Após instalar o compilador siga os passos abaixo:
+
 1- Copie os arquivos abaixo para a pasta asn1pp-master criada na instalação do compilador ASN1.
 	
 	protomau.h
