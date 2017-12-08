@@ -1,0 +1,62 @@
+Proto DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+PDU ::=SEQUENCE{
+	  seq INTEGER,
+	  payload CHOICE {
+	  	assoc Associacao,
+	  	conf Configuracao,
+	  	dados Dados
+	  }
+}
+
+Emprego ::= SEQUENCE {
+	id INTEGER,
+	tipo INTEGER
+}
+Alarme ::= SEQUENCE{
+	id INTEGER,
+	valorMaximo INTEGER,
+	valorMinimo INTEGER
+}
+
+Mostra ::= SEQUENCE{
+	timestamp INTEGER,
+	valor INTEGER
+}
+Valores ::= SEQUENCE{
+	idSensor INTEGER,
+	registros SEQUENCE OF Mostra
+	
+}
+Associacao ::= SEQUENCE {
+	idPlaca INTEGER,
+	sensores SEQUENCE OF Emprego
+}
+
+Dados ::= SEQUENCE {
+	val SEQUENCE OF Valores
+}
+Psensor ::=SEQUENCE{
+	idSensor INTEGER,
+	tipo INTEGER,
+	valor INTEGER,
+	pEnvio INTEGER,
+	pAmostragem INTEGER,
+	valormax INTEGER,
+	valormin INTEGER,
+	regs SEQUENCE OF Mostra
+}
+
+Placa ::=SEQUENCE{
+	idPlaca INTEGER,
+	datapoints SEQUENCE OF Psensor
+}
+Configuracao ::= SEQUENCE {
+	pEnvio INTEGER,
+	pAmostragem INTEGER,
+	alarme SEQUENCE OF Alarme
+}
+END
+
+
+

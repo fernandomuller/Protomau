@@ -1,21 +1,6 @@
-#include <iostream>
-#include <fstream>
-#include <stdio.h>
-#include <errno.h>
-#include <cstdint>
-#include <cstring>
-
 #include "protomau.h"
 
-using namespace std;
-
-/*protomau::protomau(Enquadramento & e): enquad(e) {
-    estado = Ocioso;
-    rseq = 0;
-    tseq = 0;
-}*/
-
-void protomau::init(int IDplaca, vector<TPsensor> VETsensores, void (*funcaoApp)(vector<TPsensor> vs)){
+void protomau::initClient(int IDplaca, vector<TPsensor> VETsensores, void (*funcaoApp)(vector<TPsensor> vs)){
 		
 		int N = VETsensores.size();
 		
@@ -24,8 +9,7 @@ void protomau::init(int IDplaca, vector<TPsensor> VETsensores, void (*funcaoApp)
 		timer = time(NULL);	
 
 		printf("Atualizando valor dos sensores...\n");	  	
-	  	fApp(VETsensores);	  	
-	  	printf("Atualizado!!! Timer: %ld \n\n", timer);
+	  	fApp(VETsensores);	   	
 	  	
 	  	//Define valores de amostras e 
 	  	//insere nos registros do sensor
@@ -35,7 +19,6 @@ void protomau::init(int IDplaca, vector<TPsensor> VETsensores, void (*funcaoApp)
 	   		VETsensores[x].set_valor((x+1)*10);
 	   		a[x].set_timestamp(time(NULL));
 	   		a[x].set_valor(VETsensores[x].get_valor());
-	   		//VETsensores[x].get_regs(va[x]);
 	   		va[x].push_back(a[x]);
 	   		VETsensores[x].set_regs(va[x]);
 	   	}
@@ -46,48 +29,223 @@ void protomau::init(int IDplaca, vector<TPsensor> VETsensores, void (*funcaoApp)
   	
 		estado = inativo;
 		evento = timeout;
-		
-		printf("\nInit... Estado MEF: %d. Evento: %d",estado,evento);
 	   	
-	    sock.connect("127.0.0.1", 9999);	   
-	   	if(sock.isConnected())cout << "\nConectado!";
-	   	
+	    sock.connect("127.0.0.1", 9999);
+
+	   	if(sock.isConnected())cout << "\nConectado!";	   		
+			
 		fd_sock = sock.get_descriptor();
 		int op_sock = fcntl(fd_sock, F_GETFL);
 		fcntl(fd_sock, F_SETFL, op_sock | O_NONBLOCK);
  		
  		cout << "\n**  Iniciando Máquina de Estados...  **";
-    	evento = timeout;
-        //handle();
-        dados();
-        sleep(2);
-        exit(0);
+        handle();
+}
+
+void protomau::initServer(){
+
+	int y;
+	char buffer[sizeof(u_int8_t) * 1024];
+
+// CONFIGURA O SOCKET...................................
+	
+	int pid, fd_escuta, fd_conexao;
+	struct sockaddr_in endereco_servidor;
+	fd_escuta = socket(AF_INET, SOCK_STREAM, 0);
+	if (fd_escuta < 0) {
+		printf("Erro em socket()\n");
+		exit(1);
+	}
+	bzero(&endereco_servidor, sizeof(endereco_servidor));
+	endereco_servidor.sin_family = AF_INET;
+	endereco_servidor.sin_addr.s_addr = htonl(INADDR_ANY);
+	endereco_servidor.sin_port = htons(PORTA);
+	// Atrela o soquete ao endereço de servidor
+	if (bind(fd_escuta, (struct sockaddr *) &endereco_servidor,
+			sizeof(endereco_servidor)) == -1) {
+		printf("Erro no bind()\n");
+		exit(1);
+	}
+	listen(fd_escuta, 5);
+		
+	// O SERVIDOR FICA EM LOOP ATENDENDO CLIENTES..........
+	
+	cout<<"Aguardando conexões..."<<endl;
+	
+	while(1) {
+	// Accept() é bloqueante,o servidor irá dormir
+	// até uma conexão entrar.		
+		fd_conexao = accept(fd_escuta, 0, 0);
+		if (fd_conexao < 0) {
+			continue;
+		}
+		// gera um processo-filho para tratar a conexao
+		pid = fork();
+		if (pid < 0) {// fork() falhou
+			close(fd_conexao);
+			continue;
+		} else if (pid > 0) {// sou o pai
+			close(fd_conexao);
+			continue;
+		}
+		// se chegou aqui, sou o filho 
+
+		y = 0;	
+		while(true){
+			y= 0;
+			y = recv(fd_conexao, buffer, 1024, 0);
+			if(y>0){
+				cout<<"\nMensagem recebida! Tamanho: "<<y<<" bytes..."<< endl;	
+				string msg = string(buffer, y);
+		
+			// AQUI ENTRA O ASN1 para RX   ........................
+		
+				stringstream inp;
+			 	TPDU::DerDeserializer decoder(inp);
+			 	inp.write(msg.c_str(), y);
+				TPDU  *pdu_rx = decoder.deserialize();
+				
+				if (pdu_rx) {
+					cout<<"Estrutura obtida da decodificação DER:"<<endl;
+					pdu_rx->show();
+				}  else{
+				  		cout<<"\nImpossível decodificar estrutura\n"<<endl;
+				}							
+				
+				TPDU::Choice_payload & carga = pdu_rx->get_payload();	
+				
+				if(carga.get_choice() == payload_PR_assoc ){
+				 	printf("\nPDU: Associacao\n");
+				 	TAssociacao associa = carga.get_assoc();				 	
+				 	
+				 	vector<TEmprego> ve;	
+					associa.get_sensores(ve);
+					
+					int N = ve.size();	
+					
+					vector<TAlarme> va;
+					TAlarme a[N];
+
+					if(N>0){
+						for(int i = 0; i < N; i++){
+							a[i].set_id(ve[i].get_id());
+							a[i].set_valorMaximo(50 + i);
+							a[i].set_valorMinimo(5 + i);				
+							va.push_back(a[i]);	
+						}		
+					}
+					
+				// AQUI ENTRA O ASN1 TX   ...............
+								 
+					TPDU pdu_tx; 
+					TPDU::Choice_payload & pay = pdu_tx.get_payload();	
+					TConfiguracao config = pay.get_conf();
+						
+					config.set_pEnvio(10);
+					config.set_pAmostragem(2);
+					config.set_alarme(va);
+									
+					pdu_tx.check_constraints();	
+					
+					//pdu_tx.show();
+	
+				  	ostringstream out;
+				  	TPDU::DerSerializer encoder(out);				  	
+				  	encoder.serialize(pdu_tx); 	
+				  	string conteudo = out.str();
+				  	int c = conteudo.size();  							 
+			 
+					int tx = send(fd_conexao, conteudo.c_str(),c,0);
+			
+				  	cout<<"\nEnviou: "<<tx<<" bytes de "<<c<<endl;
+				 	
+				 	
+				}else if(carga.get_choice() == payload_PR_dados ){
+				 	printf("\nPDU: Dados\n");
+				 	TDados data = carga.get_dados();
+				 					 	
+				 	vector<TValores>  v_valores;					
+					data.get_val(v_valores);
+									
+					int t = v_valores.size();							
+
+					vector<TMostra> v_amostras[t];	
+				
+					std::ofstream out("regs.txt", std::ios_base::app | std::ios_base::out);
+					
+					if(out == NULL){
+						printf("Erro, nao foi possivel abrir o arquivo\n");
+					}else{	
+
+						for(int y=0; y<t; y++){	
+												
+							v_valores[y].get_registros(v_amostras[y]);
+						
+							int k = v_amostras[y].size();
+						
+							for(int u = 0; u<k; u++){
+								int ts = v_amostras[y][u].get_timestamp();
+								int val = v_amostras[y][u].get_valor();
+								out<<"id: "<< v_valores[y].get_idSensor();
+								out<< " , timestamp: "<< ts <<" , valor: "<<val;
+							}	
+							out << "\r";				
+						}
+						out << "\n\r";
+						printf("\nGravou registros em arquivo! \n");
+						out.close();	
+					}												 	
+				}			
+				sleep(1);	
+				delete pdu_rx;										
+			}
+			y=0;				
+		}				
+	}
+
+
+}
+
+void protomau::amostrar(){
+
+		vector<TPsensor> VETsensores;
+		placa.get_datapoints(VETsensores);
+		int N = VETsensores.size();
+		
+		printf("Atualizando valor dos sensores...\n");	  	
+	  	fApp(VETsensores);   	
+	  	
+	  	vector<TMostra> va[N];
+	  	TMostra a[N];
+	  		  		  		  	    	
+	   	for(int x=0; x<N; x++){
+	   		a[x].set_timestamp(time(NULL));
+	   		a[x].set_valor(VETsensores[x].get_valor());
+	   		va[x].push_back(a[x]);
+	   		VETsensores[x].set_regs(va[x]);
+	   	}		
+		placa.set_datapoints(VETsensores);   		 	  	
+  		//placa.show();
+
+
 }
 
 void protomau::handle(){
-	printf ("\n\nhandle() Estado MEF: %d Evento: %d",estado,evento);	
-		
-	char buffer[1024];
-	int n = 0;
-	if(estado==1){cout << "  **  INATIVO  **";
-	}else{cout << "  **  ATIVO  **";} 
-		
-	//int y = sock.recv(buffer, 1);
-	//printf ("\n\nRecebeu: %d " , y);
-	//TODO
+			
+	char buffer[sizeof(u_int8_t) * 1024];
+	int n = 0;	
+	
  	switch (evento)
  	{
-        case timeout://----------------------------------------
-		    	if(estado==inativo){
-		    	//cout << "\n** inativo**********";
+        case timeout:
+		    	if(estado==inativo){	
 		    		assoc(placa);//Envia mensagem Associação
 		    		timer_val = {5,0};
 		    	}else{
-		    	//cout << "*********ativo**********";
 		    		dados();//Envia mensagem Dados
 		    		timer_val = {5,0};
-		    	}        		           
-           			//timer_val = {5,0};					
+		    	}        		      
+		    						
 				FD_ZERO(&r);
 				FD_SET(fd_sock, &r);						   		   
 				n = select(fd_sock+1, &r, NULL, NULL, &timer_val);
@@ -95,57 +253,48 @@ void protomau::handle(){
 				printf ("\n\nn: %d .  " , n);
 				
 				if (FD_ISSET(fd_sock, &r)) {
-				 cout << "*********Socket ??? **********";
-						//Trata recepção msg Conf	
-						
-						evento = quadro;
-						handle(); 
-						break;       				
+				 	cout << "\nTrata recepção msg Conf...\n";
+					evento = quadro;
+					handle(); 
+					//break;       				
 				}   
-				//handle();										  		    
+													  		    
 				if (n <= 0) { 
-				cout << "\n*********Timeout ???**********";
-						evento = timeout;							
-						handle();
-						break;
+					cout << "\nTrata Timeout...\n";
+					evento = timeout;							
+					handle();
+					//break;
 				} 									
             break;
 
-        case quadro://-------------------------------------------------
+        case quadro://---------------------------------------------
             
             //Trata recepção msg Conf
-            		
-            		//string recv(int max_bytes);
-  					int rx = sock.recv(buffer, 1024);
-  					string msg = string(buffer, rx);
-		
-			// AQUI ENTRA O ASN1..............................
-		
+            		cout << "\nQuadro recebido!\n";
+  					int rx = sock.recv(buffer, 1024); 				
+  					string msg = string(buffer, rx);  				
+					cout << "\nRecebeu: "<<rx<<" bytes\n";
+			
+			// AQUI ENTRA O ASN1.............................	
+			 
 					stringstream inp;
 			 		TPDU::DerDeserializer decoder(inp);
-			 		inp.write(msg.c_str(), rx);								
-					TPDU * other = decoder.deserialize();					
+			 		inp.write(msg.c_str(), rx);						
+					TPDU * other = decoder.deserialize();			
 					
 				  	if (other) {
-						cout<<"Estrutura obtida da decodificação DER:"<<endl;
 						other->show();
 						TPDU::Choice_payload & carga = other->get_payload();	
-						//TConfiguracao config = carga.get_conf();
-						//configura();
-						/*
-						Configuracao ::= SEQUENCE {
-							pEnvio INTEGER,
-							pAmostragem INTEGER,
-							pAmostragemEsp SEQUENCE OF Emprego,
-							alarme SEQUENCE OF Alarme
-						}*/	
+						if(carga.get_choice() == payload_PR_conf){
+						 	printf("\nPDU: Configuracao\n");
+						 	TConfiguracao config = carga.get_conf();
+						 	estado = ativo;
+						}						
 						
-						//config.set_idPlaca(p.get_idPlaca());
-						
-				  	} //else  break;
-				  	// destruir estruturas obtidas do decodificador 
-				  	delete other;		 		
-				 	
+				  	} else{
+				  		cout<<"\nImpossível decodificar estrutura\n"<<endl;
+				  	}
+				  	
 				 	timer_val = {5,0};	
 				 							
 					FD_ZERO(&r);
@@ -165,52 +314,7 @@ void protomau::handle(){
 					} 
          
             break;
-        //default :
-       		printf ("Evento invalido!\n");
     }	
-   cout << "*********fim **********";
-}
-
-void protomau::configura(TPlaca p){
-	cout << "\nConfigurando a Placa...\n";
-	
-	TPDU pdu;
-	TPDU::Choice_payload & carga = pdu.get_payload();
-    TConfiguracao config = carga.get_conf();
-
-	config.set_pEnvio(10);
-	config.set_pAmostragem(2);
-	
-	vector<TPsensor> v_sensores;
-	placa.get_datapoints(v_sensores);
-	
-	int N = v_sensores.size();
-
-	vector<TAlarme> ve;
-	TAlarme e[N];
-
-	if(N>0){
-		for(int i = 0; i < N; i++){
-			e[i].set_id(v_sensores[i].get_idSensor());
-			e[i].set_valorMaximo(N-i + 1);
-			e[i].set_valorMinimo(i-N);				
-			ve.push_back(e[i]);	
-		}		
-	}
-
-	config.set_alarme(ve);
-/*--------------------------------------------------------*/
-	pdu.check_constraints();	
-	pdu.show();
-	
-  	ostringstream out;
-  	TPDU::DerSerializer encoder(out);
-  	
-  	encoder.serialize(pdu);  	
-	
-  	string conteudo = out.str();
-  	cout<<"Enviou: "<<sock.send(conteudo)<<" bytes de "<<conteudo.size()<< endl;
-	
 }
 
 void protomau::assoc(TPlaca p){	
@@ -231,11 +335,11 @@ void protomau::assoc(TPlaca p){
 	TEmprego e[N];
 	
 	if(N>0){
-		for(int i = 0; i < N; i++){
-			e[i].set_id(v_sensores[i].get_idSensor());
-			e[i].set_tipo(v_sensores[i].get_tipo());			
-			ve.push_back(e[i]);	
-		}		
+			for(int i = 0; i < N; i++){
+				e[i].set_id(v_sensores[i].get_idSensor());
+				e[i].set_tipo(v_sensores[i].get_tipo());			
+				ve.push_back(e[i]);	
+		   }		
 	}
 	
 	associa.set_sensores(ve); 
@@ -251,14 +355,11 @@ void protomau::assoc(TPlaca p){
   	string conteudo = out.str();
   	cout<<"Enviou: "<<sock.send(conteudo)<<" bytes de "<<conteudo.size()<< endl;
   	
-  	//printf("\n**  Fim teste msg Assoc\n");
-  	//sleep(1);
-	//exit(1);  	
- 	//sock.close();
 }
 
 void protomau::dados(){
-
+	
+	amostrar();
 	// Monta o PDU com uma mensagem de dados
   	TPDU pdu; 	   	
 	TPDU::Choice_payload & carga = pdu.get_payload();	
@@ -271,19 +372,15 @@ void protomau::dados(){
 	
 	vector<TValores>  v_valores;	
 	TValores v[t];		
-	
 	vector<TMostra> v_amostras[t];			
 
-	printf("\nMontando PDU Dados com %d sensores.\n", t);		
-  	  	
-  	
+	printf("\nMontando PDU Dados com %d sensores.\n", t);  	
   	
 	if(t>0){
 			for(int i = 0; i < t; i++){
-				v[i].set_idSensor(v_sensores[i].get_idSensor());			
+				v[i].set_idSensor(v_sensores[i].get_idSensor());	
 				v_sensores[i].get_regs(v_amostras[i]);
 				v[i].set_registros(v_amostras[i]);
-				//v[i].show();
 				v_valores.push_back(v[i]);	
 		   }		
 	}
@@ -300,10 +397,7 @@ void protomau::dados(){
 	
   	string conteudo = out.str();
   	cout<<"Enviou: "<<sock.send(conteudo)<<" bytes de "<<conteudo.size()<< endl;
-	
-	printf("\n**  Fim teste msg Dados\n");
-	exit(1);
-
+  	
 }
 
 

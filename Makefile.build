@@ -8,8 +8,8 @@ include Makefile.objs
 ## Ex. 2: no caso de seu projeto conter os arquivos proto.cc e session.cc:
 ## MYOBJS = proto.o session.o
 
-MYOBJS=protoserver.o TCPBaseSocket.o
-PROG=myserver
+MYOBJS= protoserver.o protomau.o TCPBaseSocket.o
+PROG=server
 ASN1SRC:=Proto.asn1 
 
 #########################################################################
@@ -40,7 +40,7 @@ all: $(OBJS) $(TOBJS) $(MYOBJS)
 	gcc -g $(CFLAGS) -c $<
 
 $(MYOBJS): %.o: ../%.cc
-	g++ -c $(CFLAGS)  -c $<
+	g++ -c -std=c++11 $(CFLAGS)  -c $<
 
 .PHONY: clean
 .PHONY: cleanup
