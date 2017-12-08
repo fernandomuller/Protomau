@@ -1,6 +1,6 @@
 
 
-	    //sock.connect("191.36.8.47", 8080);	   
+	    //sock.connect("127.0.0.1", 8080);	   
 
 /*string c1 ="GET /ScadaBR/httpds?__device=22&{__time="+msg+"&teste=";
 		int valor = 1;
